@@ -129,15 +129,16 @@ contract Trazabilidad {
     // Funcion
     // Nombre: vendedorRecicePago
     // Uso:   vendedor Recoge el pago y se cumplen las conciciones
-    function vendedorRecicePago(uint numEnt) payable public isOwner{
-        require(numEnt > 0 && numEnt <= numCalculado,"El Numero de entrega no es correcto");
+    function vendedorRecicePago(uint _numEnt) payable public isOwner{
+        require(_numEnt > 0 && _numEnt <= numCalculado,"El Numero de entrega no es correcto");
         //Si el status es CLOK y RPOK a REALIZADA
-        require(mapEntrega[numEnt].status == Status.CLOK,"El Cliente no ha firmado la recepcion");
-        mapEntrega[numEnt].status = Status.REALIZADA;
+        require(mapEntrega[_numEnt].status == Status.CLOK,"El Cliente no ha firmado la recepcion");
+        mapEntrega[_numEnt].status = Status.REALIZADA;
+        mapEntrega[_numEnt].timestamp = block.timestamp;
         //Pago al repartidor el precio
-        payable(mapEntrega[numEnt].mapRole[Role.REPARTIDOR]).transfer(priceTrasporte);
+        payable(mapEntrega[_numEnt].mapRole[Role.REPARTIDOR]).transfer(priceTrasporte);
         //Pago al vendedor
-        payable(mapEntrega[numEnt].mapRole[Role.VENDEDOR]).transfer(mapEntrega[numEnt].price * 3);
+        payable(mapEntrega[_numEnt].mapRole[Role.VENDEDOR]).transfer(mapEntrega[_numEnt].price * 3);
         emit Msg("El vendedor recoje el pago y se paga el trasporte");
     }
 
@@ -178,8 +179,9 @@ contract Trazabilidad {
     // Uso: Se cancela la entrega
     function canceladaEntrada(uint numEnt) payable public isOwner(){
         require(numEnt > 0 && numEnt <= numCalculado,"El Numero de entrega no es correcto");
-        require(mapEntrega[numEnt].status == Status.ACCEPTED, "El trasportista ya ha salido con el envio no se puede cancelar");
+        require(mapEntrega[numEnt].status == Status.ACCEPTED, "El estado no es el adecuado para poder Cancelar la entrega");
         mapEntrega[numEnt].status = Status.CANCEL;
+        mapEntrega[numEnt].timestamp = block.timestamp;
         emit MsgEntrada ("Entrega Cancelada",
         mapEntrega[numEnt].mapRole[Role.REPARTIDOR],
         mapEntrega[numEnt].mapRole[Role.CLIENTE], 
