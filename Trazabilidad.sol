@@ -1,4 +1,4 @@
-// Version de solidity del Smart Contract
+// Version de solidity del Smart Contract.
 // SPDX-License-Identifier: UNLICENSED
 
 pragma solidity ^0.8.16;
