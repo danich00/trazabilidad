@@ -16,7 +16,7 @@ contract Trazabilidad {
     struct Entrega {
         uint8  numEntrega;
         string  description;
-        uint  price ;
+        uint  price;
         uint256 timestamp;
         Status status;
         mapping (Role => address) mapRole; 
@@ -114,31 +114,32 @@ contract Trazabilidad {
     }
     // Funcion
     // Nombre: clienteFirmaRecepcion
-    // Uso:    cliente firma la recepcion del producto y se cumplen las conciciones
+    // Uso:    cliente firma la recepcion del producto si se cumplen las conciciones y sus fondos se envian al contrato
     function clienteFirmaRecepcion(uint numEnt) payable public isCliente(numEnt) {
         require(numEnt > 0 && numEnt <= numCalculado,"El Numero de entrega no es correcto");
-        if(msg.value != mapEntrega[numEnt].price * 3){
-            emit MsgPrecio ("No tienes suficientes fondos para comprar el producto, o el valor es distinto tiene que ser: ",mapEntrega[numEnt].price*3);  
-        }else{
-            require(mapEntrega[numEnt].status == Status.RPOK, "El repartidor no a llegado al destino no puedes firmar la receocion del producto");
-            mapEntrega[numEnt].status = Status.CLOK;
-            mapEntrega[numEnt].timestamp = block.timestamp;
-            emit Msg("El Cliente a firmado la recepcion de Producto");
-        } 
+        require(msg.value == mapEntrega[numEnt].price, "El precio introducido no se corresponde con el precio del producto");
+        mapEntrega[numEnt].status = Status.CLOK;
+        //Cuando el cliente da el Ok sus fondos se transfieren al contrato
+            
+        emit Msg("El Cliente ha firmado la recepcion de Producto");
+
     }
+
     // Funcion
     // Nombre: vendedorRecicePago
     // Uso:   vendedor Recoge el pago y se cumplen las conciciones
-    function vendedorRecicePago(uint _numEnt) payable public isOwner{
+    function vendedorRecibePago(uint _numEnt) payable public isOwner{
         require(_numEnt > 0 && _numEnt <= numCalculado,"El Numero de entrega no es correcto");
         //Si el status es CLOK y RPOK a REALIZADA
         require(mapEntrega[_numEnt].status == Status.CLOK,"El Cliente no ha firmado la recepcion");
         mapEntrega[_numEnt].status = Status.REALIZADA;
         mapEntrega[_numEnt].timestamp = block.timestamp;
+
         //Pago al repartidor el precio
         payable(mapEntrega[_numEnt].mapRole[Role.REPARTIDOR]).transfer(priceTrasporte);
+        
         //Pago al vendedor
-        payable(mapEntrega[_numEnt].mapRole[Role.VENDEDOR]).transfer(mapEntrega[_numEnt].price * 3);
+        payable(mapEntrega[_numEnt].mapRole[Role.VENDEDOR]).transfer(mapEntrega[_numEnt].price - priceTrasporte);
         emit Msg("El vendedor recoje el pago y se paga el trasporte");
     }
 
@@ -157,21 +158,20 @@ contract Trazabilidad {
     function crearEntrega(
         address repartidor, 
         address cliente, 
-        //uint precio,
+        uint precio,
         string calldata description) 
-        public payable isOwner isNot0x000000(repartidor) isNot0x000000(cliente){
-        
+        public payable isOwner {
         numCalculado ++ ;
+        uint precioEther = precio * (10 ** 18);
         mapEntrega[numCalculado].numEntrega = numCalculado;
         mapEntrega[numCalculado].description = description;
-        mapEntrega[numCalculado].price = msg.value;
+        mapEntrega[numCalculado].price = precioEther;
         mapEntrega[numCalculado].timestamp = block.timestamp;
         mapEntrega[numCalculado].status = Status.ACCEPTED;
         mapEntrega[numCalculado].mapRole[Role.REPARTIDOR] = repartidor;
         mapEntrega[numCalculado].mapRole[Role.CLIENTE] = cliente;
         mapEntrega[numCalculado].mapRole[Role.VENDEDOR] = owner;
         emit MsgEntrada ("Entrega creada: " ,repartidor, cliente, msg.value, description);
-
     }   
 
     // Funcion
@@ -185,7 +185,8 @@ contract Trazabilidad {
         emit MsgEntrada ("Entrega Cancelada",
         mapEntrega[numEnt].mapRole[Role.REPARTIDOR],
         mapEntrega[numEnt].mapRole[Role.CLIENTE], 
-        mapEntrega[numEnt].price, mapEntrega[numEnt].description);
+        mapEntrega[numEnt].price, 
+        mapEntrega[numEnt].description);
     }
 
     // Funcion
@@ -210,8 +211,6 @@ contract Trazabilidad {
             mapEntrega[numEnt].mapRole[Role.CLIENTE], 
             mapEntrega[numEnt].mapRole[Role.REPARTIDOR],
             mapEntrega[numEnt].mapRole[Role.VENDEDOR]);
-        
-       
     }
     
     // Funcion get
@@ -221,11 +220,18 @@ contract Trazabilidad {
         return (address(this).balance);
     }
 
+    // Funcion get
+    // Nombre: verPrecio
+    // Uso: Consultar el precio de un producto
+    function verPrecio(uint numEnt) public view isOwner returns(uint){
+        return mapEntrega[numEnt].price;
+    }
+
     // Funcion view
     // Nombre: viewEntregaStatus
     // Uso: Ver El status de la entrega por numEntrega
     // Status {ACCEPTED,READY,CLOK,RPOK,CLKO,RPKO,CANCEL,REALIZADA}
-    function viewEntregaStatus(uint numEnt) public view isOwner returns(string memory){
+    function viewEntregaStatus(uint numEnt) public view returns(string memory){
         require(numEnt > 0 && numEnt <= numCalculado,"El Numero de entrega no es correcto");
         if (mapEntrega[numEnt].status == Status.ACCEPTED){
             return ACCEPTED;
@@ -244,6 +250,7 @@ contract Trazabilidad {
         }else{
             return REALIZADA;
         }
+        
     }
-  
+
 }
