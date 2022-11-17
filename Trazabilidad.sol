@@ -3,8 +3,8 @@
 
 pragma solidity ^0.8.16;
 // Informacion del Smart Contract
-// Nombre: Reserva
-// Logica: Implementa subasta de productos entre varios participantes
+// Nombre: Trazabilidad
+// Logica: Realiza un contral de entregas para una ruta preestablecida
 
 // Declaracion del Smart Contract - Trazabilidad
 contract Trazabilidad {
@@ -13,6 +13,7 @@ contract Trazabilidad {
     enum  Status {ACCEPTED,READY,CLOK,RPOK,CLKO,RPKO,CANCEL,REALIZADA}
     enum  Role {CLIENTE,REPARTIDOR,VENDEDOR}
     
+    // Creamos la estructura de datos para la entrega
     struct Entrega {
         uint8  numEntrega;
         string  description;
@@ -22,10 +23,12 @@ contract Trazabilidad {
         mapping (Role => address) mapRole; 
     }
    
+    // Implementamos los datos de las transacciones para las firmas
     uint  priceTrasporte;
     uint8 public numCalculado;
     mapping (uint => Entrega) mapEntrega;
 
+    //Propietario y actores en el reparto
     address payable public owner;
     address payable public contractaddress;
     uint fondostotales = address(this).balance;
@@ -47,7 +50,7 @@ contract Trazabilidad {
     event MsgEntradaXNumEnt (uint8 _numentrada ,string _descipcion,uint _precio, string _status, address _cliente, address _repartidor, address _vendedor);
     event MsgPrecio(string _message, uint _precio);
     // ----------- Constructor -----------
-    // Uso: Inicializa el Smart Contract - Reserva
+    // Uso: Inicializa el Smart Contract - Inicio de Ruta
     constructor() {
         
         // Inicializo el valor a las variables (datos)
@@ -56,10 +59,10 @@ contract Trazabilidad {
         numCalculado = 0;
         priceTrasporte = 0.001 ether;
         // Se emite un Evento
-        emit Msg("Contrato entraga creada sin Entragas");
+        emit Msg("Contrato entrega creada sin Entregas");
     }
 
-    // ------------  Modificadore ------------
+    // ------------  Modificadores ------------
     // Modificador
     // Nombre: isRepartidor
     // Uso: Comprueba que es el repartidor de la entrega
@@ -93,21 +96,21 @@ contract Trazabilidad {
 
     // Funcion
     // Nombre: repartidorFirmaSalida
-    // Uso:    Reaprtidor firma la salida al contrato si se cumplen las conciciones
+    // Uso:    Repartidor firma la salida al contrato si se cumplen las conciciones
     function repartidorFirmaSalida(uint numEnt) public isRepartidor(numEnt) {
-        require(numEnt > 0 && numEnt <= numCalculado,"El Numero de entrega no es correcto");
-        require(mapEntrega[numEnt].status == Status.ACCEPTED,"EL estado de la Entraga tiene que estar a ACCEPTED");
+        require(numEnt > 0 && numEnt <= numCalculado,"El número de entrega no es correcto");
+        require(mapEntrega[numEnt].status == Status.ACCEPTED,"El estado de la entrega tiene que estar a ACCEPTED");
         mapEntrega[numEnt].status = Status.READY;
         mapEntrega[numEnt].timestamp = block.timestamp;
-        emit Msg("La entrega a salido hacia su destino");
+        emit Msg("La entrega ha salido hacia su destino");
         
     }
     // Funcion
     // Nombre: repartidorFirmaLLlegada
-    // Uso:    Reprtidor firma la llegada en contrato y se cumplen las conciciones
+    // Uso:    Repartidor firma la llegada en contrato y se cumplen las condiciones
     function repartidorFirmaLlegada(uint numEnt) public isRepartidor(numEnt) {
-        require(numEnt > 0 && numEnt <= numCalculado,"El Numero de entrega no es correcto");
-        require(mapEntrega[numEnt].status == Status.READY,"EL estado de la Entraga tiene que estar a READY");
+        require(numEnt > 0 && numEnt <= numCalculado,"El número de entrega no es correcto");
+        require(mapEntrega[numEnt].status == Status.READY,"El estado de la entrega tiene que estar a READY");
         mapEntrega[numEnt].status = Status.RPOK;
         mapEntrega[numEnt].timestamp = block.timestamp;
         emit Msg("El repartidor ha firmado la llega al destino");
@@ -116,7 +119,7 @@ contract Trazabilidad {
     // Nombre: clienteFirmaRecepcion
     // Uso:    cliente firma la recepcion del producto si se cumplen las conciciones y sus fondos se envian al contrato
     function clienteFirmaRecepcion(uint numEnt) payable public isCliente(numEnt) {
-        require(numEnt > 0 && numEnt <= numCalculado,"El Numero de entrega no es correcto");
+        require(numEnt > 0 && numEnt <= numCalculado,"El número de entrega no es correcto");
         require(msg.value == mapEntrega[numEnt].price, "El precio introducido no se corresponde con el precio del producto");
         mapEntrega[numEnt].status = Status.CLOK;
         //Cuando el cliente da el Ok sus fondos se transfieren al contrato
@@ -131,7 +134,7 @@ contract Trazabilidad {
     function vendedorRecibePago(uint _numEnt) payable public isOwner{
         require(_numEnt > 0 && _numEnt <= numCalculado,"El Numero de entrega no es correcto");
         //Si el status es CLOK y RPOK a REALIZADA
-        require(mapEntrega[_numEnt].status == Status.CLOK,"El Cliente no ha firmado la recepcion");
+        require(mapEntrega[_numEnt].status == Status.CLOK,"El Cliente no ha firmado la recepción");
         mapEntrega[_numEnt].status = Status.REALIZADA;
         mapEntrega[_numEnt].timestamp = block.timestamp;
 
@@ -175,9 +178,9 @@ contract Trazabilidad {
     }   
 
     // Funcion
-    // Nombre: CanceladaEntrada
+    // Nombre: CanceladaEntrega
     // Uso: Se cancela la entrega
-    function canceladaEntrada(uint numEnt) payable public isOwner(){
+    function canceladaEntrega(uint numEnt) payable public isOwner(){
         require(numEnt > 0 && numEnt <= numCalculado,"El Numero de entrega no es correcto");
         require(mapEntrega[numEnt].status == Status.ACCEPTED, "El estado no es el adecuado para poder Cancelar la entrega");
         mapEntrega[numEnt].status = Status.CANCEL;
@@ -190,19 +193,19 @@ contract Trazabilidad {
     }
 
     // Funcion
-    // Nombre: panico
+    // Nombre: pánico
     // Uso: Se devuelve el dinero del contrato al owner
     function panico() public isOwner(){
         
         owner.transfer(address(this).balance);
-        emit Msg("Funcion de panico Realizada se devuelven los fondos del Contrato al owner");
+        emit Msg("Funcion de pánico realizada se devuelven los fondos del Contrato al owner");
     }
 
     // Funcion get
     // Nombre: viewEntrega
     // Uso: Ver entrega por numEntrega
     function viewEntrega(uint numEnt) public isOwner() {
-        require(numEnt > 0 && numEnt <= numCalculado,"El Numero de entrega no es correcto");
+        require(numEnt > 0 && numEnt <= numCalculado,"El número de entrega no es correcto");
         emit MsgEntradaXNumEnt (
             mapEntrega[numEnt].numEntrega ,
             mapEntrega[numEnt].description,
